@@ -37,6 +37,43 @@ const AI_MODE_RUNNING = 0;
 const AI_MODE_STARTING = 1;
 const AI_MODE_CLOSED = 2;
 let AI_mode_start_waiting_time = 2000;
+let template_of_building_banner = '<div class="banner-item">mark_of_building_name</div>'
+let template_of_div_top_floor = '<div class="elevator-window elevator-ceiling"></div>'
+let template_of_td_ceiling = '<div class="elevator-window ceiling"></div>'  
+let template_of_td_elevator_wall_side = '        ' +
+      '<div class="elevator-window ">\n' +
+      '            <div class="floor-symbol">\n' +
+      '                mark_floor_no\n' +
+      '            </div>\n' +
+      '\n' +
+      '            <img class="potting" src="mark-of-potting-path">\n' +
+      '\n' +
+      '</div>'
+let path_of_potting = "images/potting-2.png"
+
+let template_of_div_elevator_window = '<div class="elevator-window mark-of-fno mark-of-fno-mark-of-eno">\n' +
+      '                        <button class="btn btn-default btn-circle  elevator-choose-take choose-up" type="button">▲\n' +
+      '                        </button>\n' +
+      '                        <button class="btn btn-default btn-circle  elevator-choose-take choose-down" type="button">▼\n' +
+      '                        </button>\n' +
+      '\n' +
+      '                        mark-of-elevator-main\n' +
+      '                        <div class="elevator-body elevator-outdoor ">\n' +
+      '                            <div class="elevator-door door-left"></div>\n' +
+      '                            <div class="elevator-door door-right"></div>\n' +
+      '                        </div>\n' +
+      '                    </div>'
+let template_of_td_elevator_ground = '<div class="elevator-window ceiling ground">\n' +
+      '\n' +
+      '                        <div class="blanket"></div>\n' +
+      '\n' +
+      '                    </div>'
+      let template_of_div_elevator_main = '                        <div class="elevator-body elevator-main mark-of-eno">\n' +
+      '\n' +
+      '                            <div class="elevator-line"></div>\n' +
+      '                        </div>'    
+
+      
 // basic config end
 
 
@@ -48,6 +85,14 @@ const totallifts = document.querySelector(".total-lifts");
 const $changeFloor = $('#change-floors');
 $changeFloor.click(setFloors);
 
+function div_html_of_elevator_window(floor_no, elevator_no) {
+    let elevator_main_info = ''
+    if (floor_no === 1) {
+        elevator_main_info = template_of_div_elevator_main.replace(/mark-of-eno/g, elevator_no)
+    }
+    return template_of_div_elevator_window.replace(/mark-of-fno/g, floor_no).replace(/mark-of-eno/g, elevator_no).replace(/mark-of-elevator-main/g, elevator_main_info)
+}
+
 // click event for change elevators
 const $changeLifts = $('#change-lifts');
 $changeLifts.click(setElevator);
@@ -57,24 +102,47 @@ const $elevatorPositionButton = $('.first-floor');
 $elevatorPositionButton.click(firstFloor);
 
 // click event for smart mode
-const $enableAIModeButton = $('.smart-mode');
-$enableAIModeButton.click(smartMode);
+// const $enableAIModeButton = $('.smart-mode');
+// $enableAIModeButton.click(smartMode);
 // DOM ends
 
 document.addEventListener("DOMContentLoaded", function() {
     set_building_configs_and_rebuild(floor_nums, elevator_nums);
 });
 
-function set_building_configs_and_rebuild(floor_nums, elevator_nums) {
-    var elements = document.querySelectorAll('*');
-    // Stop any animations that are currently running on those elements
-    elements.forEach(function(element) {
-    var computedStyle = getComputedStyle(element);
-    if (computedStyle.animationName !== 'none' || computedStyle.transitionProperty !== 'none') {
-        element.style.animationPlayState = 'paused';
-        element.style.transition = 'none';
+function divs_html_of_a_ceiling(floor_no, elevator_nums) {
+    return string_repeat(template_of_td_ceiling, elevator_nums + 2)
+}
+
+function divs_html_of_a_floor(floor_no, elevator_nums) {
+    return divs_html_of_a_ceiling(floor_no, elevator_nums) + divs_html_of_elevator_wall(floor_no, elevator_nums) +
+        divs_html_of_a_ground(floor_no, elevator_nums)
+}
+
+// Set up click event handlers for indoor elevator switches
+function set_indoor_switch_bind(floor_nums, elevator_nums) {
+    for (let eno = 1; eno <= elevator_nums; eno++) {
+      // Handle click on close door switch
+      ext_choose_indoor_close_door_switch(eno).click(function() {
+        elevators[eno].skip_waiting_for_closing();
+      });
+  
+      // Handle click on open door switch
+      ext_choose_indoor_open_door_switch(eno).click(function() {
+        elevators[eno].handle_open_door_button_pressed();
+      });
+  
+      // Handle click on floor switches
+      for (let fno = 1; fno <= floor_nums; fno++) {
+        ext_choose_indoor_foor_switch(fno, eno).click(function() {
+          elevators[eno].toggle_indoor_switch(fno);
+        });
+      }
     }
-    });
+  }
+
+function set_building_configs_and_rebuild(floor_nums, elevator_nums) {
+    $('*').stop()
     create_elevators_objects(elevator_nums);
     set_outdoor_button_states(floor_nums);
 
@@ -89,6 +157,181 @@ function set_building_configs_and_rebuild(floor_nums, elevator_nums) {
     }
 }
 
+function set_outdoor_switch_bind(floor_nums, elevator_nums) {
+    for (let fno = 1; fno <= floor_nums; fno++) {
+      // Handle click on up switch
+      choose_outdoor_witches(fno, DIRECTION_UP).click(function() {
+        toggle_outdoor_switch(fno, DIRECTION_UP);
+      });
+  
+      // Handle click on down switch
+      choose_outdoor_witches(fno, DIRECTION_DOWN).click(function() {
+        toggle_outdoor_switch(fno, DIRECTION_DOWN);
+      });
+    }
+}
+  
+function divs_html_of_a_floor(floor_no, elevator_nums) {
+    return divs_html_of_a_ceiling(floor_no, elevator_nums) + divs_html_of_elevator_wall(floor_no, elevator_nums) +
+        divs_html_of_a_ground(floor_no, elevator_nums)
+}
+
+function set_g_container_grid_template(floor_nums, elevator_nums) {
+    let column_res = wall_side_with + string_repeat(' ' + wall_main_with, elevator_nums) + ' ' + wall_side_with
+    let row_res = top_floor_height + string_repeat(' ' + celling_height + ' ' + wall_main_height + ' ' + ground_height, floor_nums)
+    $('.g-container').css('grid-template-columns', column_res)
+    $('.g-container').css('grid-template-rows', row_res)
+
+}
+
+//queue
+function Queue() {
+
+    //Initialize the queue (implemented using an array)
+    let items = [];
+
+    //Insert an element into the queue (tail)
+    this.push = function (element) {
+        items.push(element);
+    }
+
+    //Pop an element from the queue (head) and return that element
+    this.pop = function () {
+        return items.shift();
+    }
+    //Look at the front element of the queue (the element with index 0 in the array)
+    this.front = function () {
+        if (items.length === 0) {
+            return undefined
+        }
+        return items[0];
+    }
+    this.back = function () {
+        if (items.length === 0) {
+            return undefined
+        }
+        return items[items.length - 1]
+    }
+
+    //Check whether the queue is empty, if it is empty, return true; otherwise return false
+    this.isEmpty = function () {
+        return items.length === 0;
+    }
+    this.indexSatisfy = function (condition) {
+        for (let i = 0; i < items.length; i++) {
+            if (condition(items[i])) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    this.removeElementByIndex = function (index) {
+        if (index >= 0 && index < items.length) {
+            items.splice(index, 1)
+        }
+    }
+    this.removeElementByCondition = function (condition) {
+        let index = this.indexSatisfy(condition)
+        if (index !== -1) {
+            this.removeElementByIndex(index)
+        }
+    }
+    //Check the length of the queue
+    this.size = function () {
+        return items.length;
+    }
+    this.clear = function () {
+        while (!this.isEmpty()) {
+            this.pop();
+        }
+    }
+
+    //view queue
+    this.print = function () {
+        
+    //return as a string
+    return items.toString();
+    }
+}
+
+function divs_html_of_top_floor(floor_no, elevator_nums) {
+    let res = ''
+    res += template_of_building_banner.replace(/mark_of_building_name/g, building_name)
+    res += string_repeat(template_of_div_top_floor, elevator_nums + 2)
+    return res
+}
+
+function div_html_of_elevator_wall_side(floor_no) {
+    return template_of_td_elevator_wall_side.replace(/mark_floor_no/g, floor_no).replace(/mark-of-potting-path/g, path_of_potting)
+}
+
+function grids_html_of_a_building(floor_nums, elevator_nums) {
+    let res = divs_html_of_top_floor(floor_nums + 1, elevator_nums)
+    for (let i = floor_nums; i >= 1; i--) {
+        res += divs_html_of_a_floor(i, elevator_nums)
+    }
+    return res
+}
+
+function divs_html_of_a_ground(floor_no, elevator_nums) {
+    return string_repeat(template_of_td_elevator_ground, elevator_nums + 2)
+}
+
+function set_building_display(floor_nums, elevator_nums) {
+    $('#elevator_nums_info').html('' + elevator_nums)
+    $('#floor_nums_info').html('' + floor_nums)
+    $(".g-container").html(grids_html_of_a_building(floor_nums, elevator_nums))
+    set_g_container_grid_template(floor_nums, elevator_nums)
+    choose_outdoor_witches(1, DIRECTION_DOWN).hide()
+    choose_outdoor_witches(floor_nums, DIRECTION_UP).hide()
+    cal_floor_height()
+    cal_elevator_main_first_top()
+    $('.elevator-line').height(cal_elevator_line_height(floor_nums) + 'px')
+}
+
+function choose_outdoor_witches(floor_no, direct) {
+    if (direct === DIRECTION_UP) {
+        return $('.elevator-window.' + floor_no + ' .choose-up')
+    } else {
+        return $('.elevator-window.' + floor_no + ' .choose-down')
+    }
+}
+
+function cal_elevator_main_first_top() {
+    elevator_main_first_top = $(".elevator-main.1").position().top
+    return elevator_main_first_top
+}
+
+function cal_floor_height() {
+    floor_height = $(".elevator-window.1-1").height() +
+        $('.elevator-window.ceiling').height() +
+        $('.elevator-window.ceiling.ground').height()
+    return floor_height
+}
+
+
+function divs_html_of_top_floor(floor_no, elevator_nums) {
+    let res = ''
+    res += template_of_building_banner.replace(/mark_of_building_name/g, building_name)
+    res += string_repeat(template_of_div_top_floor, elevator_nums + 2)
+    return res
+}
+
+function string_repeat(target, n) {
+    let s = target, total = "";
+    while (n > 0) {
+        if (n % 2 === 1) {
+            total += s;
+        }
+        if (n === 1) {
+            break;
+        }
+
+        s += s;
+        n = n >> 1;
+    }
+    return total;
+}
 
 // sweet alert boxes for floors
 function setFloors() {
@@ -134,7 +377,51 @@ function setFloors() {
 
           });
 }   
+// sweet alert boxes for elevators
+function setElevator() {
+    swal(
+        {
+            title: 'Please set the number of elevators',
+            text: 'The number of elevators is a number between 1-30 (inclusive)\n\nNote: If you use the zoom function of the browser, please set it back to 100% for normal use!',
+            type: 'input',
+            showCancelButton: true,
+            closeOnConfirm: false,
+            animation: 'slide-from-top',
+            inputPlaceholder: 'Enter your desired number of lifts here...'
+        },
+        function (inputValue) {
+            if (inputValue === false) {
+                return false;
+            }
+            if (inputValue === '') {
+                swal.showInputError("Can't be blank");
+                return false;
+            }
+            var re = /^\+?[1-9][0-9]*$/;
+            if (!re.test(inputValue)) {
+                swal.showInputError('Please enter a legal positive integer!');
+                return false;
+            }
+            let value = parseInt(inputValue)
+            console.log(value)
+            if (value < 1 || value > 30) {
+                swal.showInputError(
+                    'The number of elevators must be in the range of 1-30, and the value you enter is' + value +
+                    '!')
+                return false;
+            }
+            totallifts.innerHTML=`No. of Floors : ${inputValue}`;
+            set_building_configs_and_rebuild(floor_nums, value)
+            swal(
+                'Nice!',
+                'Your floor elevator number has changed to:' + value + '，A new elevator system has been generated！',
+                'success',
+            )
+            
+        });
+}
 
+// Creating the elevator objects
 function create_elevators_objects(number_of_elevators) {
     elevator_nums = number_of_elevators
     let AI_mode_has_gone_to_first_floor = 0
@@ -474,15 +761,15 @@ function create_elevators_objects(number_of_elevators) {
                         going_elevators[elevators[eno].state.now_floor_no] += 1
                     }
                 }
-                let now_enum = 0
-                let now_fnum = 0
-                let threash = 1.8
+                let now_enum = 0;
+                let now_fnum = 0;
+                let threash = 1.8;
                 for (let k = this.state.now_floor_no; k >= 1 && k <= floor_nums; k += this.state.now_direction) {
                     now_enum += going_elevators[k];
                     now_fnum += request_floors[k];
                     if (now_enum === 0 && now_fnum !== 0 || now_enum !== 0 && now_fnum / now_enum >= threash) {
                         direct_has_outter_requests = 1
-                        break
+                        break;
                     }
                 }
                 this.log('direct' + direct + ' enum=' + now_enum + ' fnum=' + now_fnum)
@@ -689,74 +976,134 @@ function create_elevators_objects(number_of_elevators) {
     }
 }
 
-function toggle_AI_mode() {
-    enable_AI_mode = !enable_AI_mode
-    if (enable_AI_mode) {
-        ext_set_is_AI_mode_enabled(enable_AI_mode)
-        for (let eno = 1; eno <= elevator_nums; eno++) {
-            if (elevators[eno].state.auto_mode_state === AI_MODE_CLOSED) {
-                elevators[eno].start_waiting_to_launch_AI_mode();
+function divs_html_of_elevator_wall(floor_no, elevator_nums) {
+    let res = ''
+    res += div_html_of_elevator_wall_side('F' + floor_no)
+    for (let i = 1; i <= elevator_nums; i++) {
+        res += div_html_of_elevator_window(floor_no, i)
+    }
+    res += div_html_of_elevator_wall_side('')
+    return res
+}
+
+// managing the requests based on state of the lift for all possible situations
+function dispatch_request(floor_no, direct) {
+    let rev_direct = DIRECTION_UP
+    if (direct === DIRECTION_UP) {
+        rev_direct = DIRECTION_DOWN
+    }
+    let has_already = 0
+    let closing = 0
+    let closing_threshold = 5
+    for (let eno = 1; eno <= elevator_nums; eno++) {
+        if (elevators[eno].state.now_floor_no === floor_no && (elevators[eno].state.now_direction === DIRECTION_STILL || elevators[eno].state.now_direction === direct)) {
+            if (elevators[eno].state.now_direction === DIRECTION_STILL) {
+                elevators[eno].need_direction(direct)
+                return
+            } else if (elevators[eno].state.now_direction === direct) {
+                if (elevators[eno].state.moving === 0) {
+                    // toggle_outdoor_switch(floor_no,direct)
+                    if (elevators[eno].state.door_state === DOOR_CLOSING) {
+                        elevators[eno].stop_closing_door()
+                    } else {
+                        toggle_outdoor_switch(floor_no, direct)
+                    }
+                    return
+                }
             }
         }
-    } else {
-        ext_set_is_AI_mode_enabled(enable_AI_mode)
-        for (let eno = 1; eno <= elevator_nums; eno++) {
-            if (elevators[eno].state.auto_mode_state !== AI_MODE_CLOSED) {
-                elevators[eno].check_AI_mode_and_callBack(
-                    function () {
-                        elevators[eno].need_direction(DIRECTION_STILL, 1)
-                    }
-                )
-            }
+        if (direct === DIRECTION_UP && elevators[eno].state.now_floor_no < floor_no && elevators[eno].state
+            .now_direction === DIRECTION_UP) {
+            has_already = 1
+            if (floor_no - elevators[eno].state.now_floor_no <= closing_threshold) closing = 1
+        } else if (direct === DIRECTION_DOWN && elevators[eno].state > floor_no &&
+            elevators[eno].state.now_direction === direct) {
+            has_already = 1
+            if (elevators[eno].state.now_floor_no - floor_no <= closing_threshold) closing = 1
         }
     }
+    let ok = 0
+    if (direct === DIRECTION_UP) {
+        let uppest_eno = -1
+        let uppest_floor = -1
+        for (let eno = 1; eno <= elevator_nums; eno++) {
+            if (elevators[eno].state.now_floor_no < floor_no && (elevators[eno].state.now_direction === DIRECTION_STILL/* || elevators[eno].state.now_direction === DIRECTION_UP*/)) {
 
+                if (elevators[eno].state.now_floor_no > uppest_floor) {
+                    uppest_floor = elevators[eno].state.now_floor_no
+                    uppest_eno = eno
+                }
+            }
+        }
+        if (uppest_eno !== -1) {
+            elevators[uppest_eno].need_direction(DIRECTION_UP)
+            ok = 1
+        }
+    } else {
+        let lowest_floor = floor_nums + 2
+        let lowest_eno = -1
+        for (let eno = 1; eno <= elevator_nums; eno++) {
+            if (elevators[eno].state.now_floor_no > floor_no && (elevators[eno].state.now_direction === DIRECTION_STILL/* || elevators[eno].state.now_direction === DIRECTION_DOWN*/)) {
+                if (elevators[eno].state.now_floor_no < lowest_floor) {
+                    lowest_floor = elevators[eno].state.now_floor_no
+                    lowest_eno = eno
+                }
+            }
+        }
+        if (lowest_eno !== -1) {
+            ok = 1
+            elevators[lowest_eno].need_direction(DIRECTION_DOWN)
+        }
+    }
+    if (ok) {
+        return
+    }
+    if (direct === DIRECTION_UP) {
+        let lowest_floor = floor_nums + 2
+        let lowest_eno = -1
+        for (let eno = 1; eno <= elevator_nums; eno++) {
+            if (elevators[eno].state.now_floor_no > floor_no && (elevators[eno].state.now_direction === DIRECTION_STILL/* || elevators[eno].state.now_direction === DIRECTION_DOWN*/)) {
+                if (elevators[eno].state.now_floor_no < lowest_floor) {
+                    lowest_floor = elevators[eno].state.now_floor_no
+                    lowest_eno = eno
+                }
+            }
+        }
+        if (lowest_eno !== -1) {
+            ok = 1
+            elevators[lowest_eno].need_direction(DIRECTION_DOWN)
+        }
+    } else {
+        let uppest_eno = -1
+        let uppest_floor = -1
+        for (let eno = 1; eno <= elevator_nums; eno++) {
+            if (elevators[eno].state.now_floor_no < floor_no && (elevators[eno].state.now_direction === DIRECTION_STILL/* || elevators[eno].state.now_direction === DIRECTION_UP*/)) {
+
+                if (elevators[eno].state.now_floor_no > uppest_floor) {
+                    uppest_floor = elevators[eno].state.now_floor_no
+                    uppest_eno = eno
+                }
+            }
+        }
+        if (uppest_eno !== -1) {
+            elevators[uppest_eno].need_direction(DIRECTION_UP)
+            ok = 1
+        }
+    }
+    console.assert(ok)
 }
 
-// sweet alert boxes for elevators
-  function setElevator() {
-    swal(
-        {
-            title: 'Please set the number of elevators',
-            text: 'The number of elevators is a number between 1-30 (inclusive)\n\nNote: If you use the zoom function of the browser, please set it back to 100% for normal use!',
-            type: 'input',
-            showCancelButton: true,
-            closeOnConfirm: false,
-            animation: 'slide-from-top',
-            inputPlaceholder: 'Enter your desired number of lifts here...'
-        },
-        function (inputValue) {
-            if (inputValue === false) {
-                return false;
-            }
-            if (inputValue === '') {
-                swal.showInputError("Can't be blank");
-                return false;
-            }
-            var re = /^\+?[1-9][0-9]*$/;
-            if (!re.test(inputValue)) {
-                swal.showInputError('Please enter a legal positive integer!');
-                return false;
-            }
-            let value = parseInt(inputValue)
-            console.log(value)
-            if (value < 1 || value > 30) {
-                swal.showInputError(
-                    'The number of elevators must be in the range of 1-30, and the value you enter is' + value +
-                    '!')
-                return false;
-            }
-            totallifts.innerHTML=`No. of Floors : ${inputValue}`;
-            set_building_configs_and_rebuild(floor_nums, value)
-            swal(
-                'Nice!',
-                'Your floor elevator number has changed to:' + value + '，A new elevator system has been generated！',
-                'success',
-            )
-            
-        });
+// managing button if it's going up or down
+function set_outdoor_button_states(number_of_floors) {
+    floor_nums = number_of_floors
+    for (let i = 1; i <= floor_nums; i++) {
+        outdoor_buttons_state[i] = []
+        outdoor_buttons_state[i][DIRECTION_UP] = outdoor_buttons_state[i][DIRECTION_DOWN] = OFF
+    }
 }
 
+// checking and changing the elevator position
+// pass a function through this to check and change
 function check_and_change_elevators_position(change_function) {
     // Looping through all elevators in the building
     for (let i = 1; i <= elevator_nums; i++) {
@@ -770,6 +1117,7 @@ function check_and_change_elevators_position(change_function) {
     change_function();
 } 
 
+// Bring all the elevators to first floor
 function firstFloor() {
     check_and_change_elevators_position(
         function () {
@@ -780,28 +1128,27 @@ function firstFloor() {
     )
 }
 
-function smartMode() {
-    enable_AI_mode = !enable_AI_mode;
-    if (enable_AI_mode) {
-        ext_set_is_AI_mode_enabled(enable_AI_mode);
-        for (let eno = 1; eno <= elevator_nums; eno++) {
-            if (elevators[eno].state.auto_mode_state === AI_MODE_CLOSED) {
-                elevators[eno].start_waiting_to_launch_AI_mode();
-            }
-        }
-    } else {
-        ext_set_is_AI_mode_enabled(enable_AI_mode)
-        for (let eno = 1; eno <= elevator_nums; eno++) {
-            if (elevators[eno].state.auto_mode_state !== AI_MODE_CLOSED) {
-                elevators[eno].check_AI_mode_and_callBack(
-                    function () {
-                        elevators[eno].need_direction(DIRECTION_STILL, 1);
-                    }
-                )
-            }
-        }
-    }
-}
-
+// function smartMode() {
+//     enable_AI_mode = !enable_AI_mode;
+//     if (enable_AI_mode) {
+//         ext_set_is_AI_mode_enabled(enable_AI_mode);
+//         for (let eno = 1; eno <= elevator_nums; eno++) {
+//             if (elevators[eno].state.auto_mode_state === AI_MODE_CLOSED) {
+//                 elevators[eno].start_waiting_to_launch_AI_mode();
+//             }
+//         }
+//     } else {
+//         ext_set_is_AI_mode_enabled(enable_AI_mode)
+//         for (let eno = 1; eno <= elevator_nums; eno++) {
+//             if (elevators[eno].state.auto_mode_state !== AI_MODE_CLOSED) {
+//                 elevators[eno].check_AI_mode_and_callBack(
+//                     function () {
+//                         elevators[eno].need_direction(DIRECTION_STILL, 1);
+//                     }
+//                 )
+//             }
+//         }
+//     }
+// }
 
 
