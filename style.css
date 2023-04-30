@@ -43,9 +43,38 @@
     .left-box {
       width: 30%;
       border: 3px solid #000000;
-      border-radius: 20px;      
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
     }
-    
+    .left-box p, .left-box button {
+      margin: 5px;
+      color: var(--primary-color);;
+    }
+    .left-box button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 10px;
+      cursor: pointer;
+      
+    }
+
+    .left-box button:hover {
+      background-color: #0062cc;
+    }
+    .left-box p {
+      font-weight: bold;
+    }
+    @media (max-width: 768px) {
+      .left-box button {
+        width: 100%;
+      }
+    }    
     .right-box {
       width: 30%;      
       border: 3px solid #000000;
