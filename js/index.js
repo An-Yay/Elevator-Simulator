@@ -133,6 +133,14 @@ function divs_html_of_a_floor(floor_no, elevator_nums) {
         divs_html_of_a_ground(floor_no, elevator_nums)
 }
 
+function ext_choose_indoor_open_door_switch(elevator_no) {
+    return $('.choose-floor-block.' + elevator_no + ' .indoor-open-door')
+}
+
+function ext_choose_indoor_close_door_switch(elevator_no) {
+    return $('.choose-floor-block.' + elevator_no + ' .indoor-close-door')
+}
+
 // Set up click event handlers for indoor elevator switches
 function set_indoor_switch_bind(floor_nums, elevator_nums) {
     for (let eno = 1; eno <= elevator_nums; eno++) {
@@ -155,6 +163,10 @@ function set_indoor_switch_bind(floor_nums, elevator_nums) {
     }
   }
 
+function ext_choose_indoor_foor_switch(floor_no, elevator_no) {
+    return $('.choose-floor-block.' + elevator_no + ' .choose-floor-button.' + floor_no)
+}
+
 function set_building_configs_and_rebuild(floor_nums, elevator_nums) {
     $('*').stop()
     create_elevators_objects(elevator_nums);
@@ -168,6 +180,16 @@ function set_building_configs_and_rebuild(floor_nums, elevator_nums) {
 
     for (let eno = 1; eno <= elevator_nums; eno++) {
         elevators[eno].start();
+    }
+}
+
+function set_outdoor_switch(floor_no, direct, state) {
+    outdoor_buttons_state[floor_no][direct] = state
+    if (outdoor_buttons_state[floor_no][direct] === ON) {
+        choose_outdoor_witches(floor_no, direct).css('background', 'orange')
+        dispatch_request(floor_no, direct)
+    } else {
+        choose_outdoor_witches(floor_no, direct).css('background', 'white')
     }
 }
 
@@ -1048,6 +1070,15 @@ function create_elevators_objects(number_of_elevators) {
     }
 }
 
+function set_indoor_floor_switch_state(floor_no, elevator_no, state) {
+    if (state === ON) {
+
+        ext_choose_indoor_foor_switch(floor_no, elevator_no).css({'background': 'orange'})
+    } else {
+        ext_choose_indoor_foor_switch(floor_no, elevator_no).css({'background': 'white'})
+    }
+}
+
 function divs_html_of_elevator_wall(floor_no, elevator_nums) {
     let res = ''
     res += div_html_of_elevator_wall_side('F' + floor_no)
@@ -1236,6 +1267,48 @@ function controller_wait_for_timeout_and_callBack(elevator_no, waiting_duration,
 //         }
 //     }
 // }
+
+function toggle_outdoor_switch(floor_no, direct) {
+    let rev_state = ON
+    if (outdoor_buttons_state[floor_no][direct] === ON) {
+        rev_state = OFF
+    }
+    set_outdoor_switch(floor_no, direct, rev_state)
+}
+
+
+function set_indoor_floor_number_display(floor_no, elevator_no) {
+    ext_choose_indoor_floor_number_display(elevator_no).html('' + floor_no)
+}
+
+function ext_choose_indoor_direction_display(elevator_no) {
+    return $('.elevator-direction.' + elevator_no)
+}
+
+function ext_choose_indoor_floor_number_display(elevator_no) {
+    return $('.floor-number.' + elevator_no)
+}
+
+let direction_display_symbol = new Map([
+    [DIRECTION_UP, '￪'],
+    [DIRECTION_DOWN, '￬'],
+    [DIRECTION_STILL, ''],
+    [DIRECTION_AI_MODE_WAITING_FOR_CHANGING, 'C']
+])
+
+function set_indoor_direction_display(elevator_no, direct) {
+    let res = ''
+    if (enable_AI_mode_display && elevators[elevator_no].state.now_direction === DIRECTION_STILL && elevators[elevator_no].state.auto_mode_state === AI_MODE_RUNNING) {
+        res = 'A'
+    } else if (direct === DIRECTION_AI_MODE_WAITING_FOR_CHANGING && (!enable_AI_mode_display || !enable_DIRECTION_AI_MODE_WAITING_FOR_CHANGING_display)) {
+        res = ''
+    } else {
+        res = direction_display_symbol.get(direct)
+    }
+    ext_choose_indoor_direction_display(elevator_no).html(res)
+}
+
+
 function controller_open_door(floor_no, elevator_no, callBack) {
     let elevator_window_mark = floor_no + '-' + elevator_no
     $('.elevator-main.' + elevator_no).animate({opacity: '100%'}, toggle_door_secs, "linear", callBack)
