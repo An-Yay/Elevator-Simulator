@@ -30,6 +30,11 @@ let ground_height = '25px';
 let wall_main_height = '170px';
 let top_floor_height = '70px';
 
+let floor_height = 320;
+let elevator_main_first_top = 123;
+let elevator_line_height = 330;
+
+
 let enable_AI_mode_display = false;
 let enable_DIRECTION_AI_MODE_WAITING_FOR_CHANGING_display = false;
 let enable_AI_mode = false;
@@ -78,12 +83,27 @@ let template_of_td_elevator_ground = '<div class="elevator-window ceiling ground
 
 
 // DOM elements for manipulations
-const totalfloors = document.querySelector(".total-floors");
-const totallifts = document.querySelector(".total-lifts");
+
+function set_system_page_buttons_binding() {
 
 // click event for change floors
 const $changeFloor = $('#change-floors');
 $changeFloor.click(setFloors);
+
+// click event for change elevators
+const $changeLifts = $('#change-lifts');
+$changeLifts.click(setElevator);
+
+// click event for distributing the lifts
+const $elevatorPositionButton = $('.first-floor');
+$elevatorPositionButton.click(firstFloor);  
+}
+
+
+const totalfloors = document.querySelector(".total-floors");
+const totallifts = document.querySelector(".total-lifts");
+
+
 
 function div_html_of_elevator_window(floor_no, elevator_no) {
     let elevator_main_info = ''
@@ -93,13 +113,7 @@ function div_html_of_elevator_window(floor_no, elevator_no) {
     return template_of_div_elevator_window.replace(/mark-of-fno/g, floor_no).replace(/mark-of-eno/g, elevator_no).replace(/mark-of-elevator-main/g, elevator_main_info)
 }
 
-// click event for change elevators
-const $changeLifts = $('#change-lifts');
-$changeLifts.click(setElevator);
 
-// click event for distributing the lifts
-const $elevatorPositionButton = $('.first-floor');
-$elevatorPositionButton.click(firstFloor);
 
 // click event for smart mode
 // const $enableAIModeButton = $('.smart-mode');
@@ -169,6 +183,58 @@ function set_outdoor_switch_bind(floor_nums, elevator_nums) {
         toggle_outdoor_switch(fno, DIRECTION_DOWN);
       });
     }
+}
+
+function set_panel_body(floor_nums, elevator_nums) {
+    let res = div_html_off_choose_floor_block_side()
+    for (let k = 1; k <= elevator_nums; k++) {
+        res += div_html_of_choose_floor_block(floor_nums, k)
+    }
+    res += div_html_off_choose_floor_block_side()
+    $('#g-panel-body').html(res)
+    let grid_template_columns_of_panel_body =
+        wall_side_with + string_repeat(' ' + wall_main_with, elevator_nums) + ' ' + wall_side_with
+    $('#g-panel-body').css('grid-template-columns', grid_template_columns_of_panel_body)
+    $('.take-place-panel').css({'height': $('#g-panel-content').height()})
+
+    for (let i = 1; i <= elevator_nums; i++) {
+        elevators[i].set_now_floor_no(elevators[i].state.now_floor_no)
+        elevators[i].set_now_direction(elevators[i].state.now_direction)
+    }
+    pin_element_to_bottom('g-panel-content')
+}
+let tempalte_of_choose_floor_button = '<button class="btn btn-default btn-circle  choose-floor-button mark-of-fno" type="button">mark-of-fno</button>\n' +
+'                    '
+let template_of_open_close_buttons = '' +
+      '            <div class="open-close-buttons">\n' +
+      '                <button class="btn btn-default btn-circle open-close indoor-open-door choose-floor-button" type="button">◀|▶\n' +
+      '                </button>\n' +
+      '                <button class="btn btn-default btn-circle open-close indoor-close-door choose-floor-button" type="button">▶|◀\n' +
+      '                </button>\n' +
+      '\n' +
+      '            </div>'
+
+function div_html_of_open_close_buttons() {
+    return template_of_open_close_buttons
+}
+
+function div_html_of_choose_floor_block(floor_nums, elevator_no) {
+    let res = ('<div class="g-panel-item-wrapper"><div class="elevator-window choose-floor-block mark-of-eno">\n' +
+        '<div class="take-place elevator-info">\n' +
+        '                        <p class="choose-floor-prompt"><span class="a">#mark-of-eno</span></p>\n' +
+        '\n' +
+        '     <div class="now-floor-info">\n' +
+        '                        <div class="floor-info-decoration"></div>\n' +
+        '                        <div class="elevator-direction mark-of-eno">￬</div><div class="floor-number mark-of-eno">1</div></div>\n' +
+        '\n' +
+        '                    </div>').replace(/mark-of-eno/g, elevator_no)
+    for (let k = 1; k <= floor_nums; k++) {
+        res += tempalte_of_choose_floor_button.replace(/mark-of-fno/g, k)
+    }
+
+    res += div_html_of_open_close_buttons()
+    res += '</div></div>'
+    return res
 }
   
 function divs_html_of_a_floor(floor_no, elevator_nums) {
@@ -287,6 +353,12 @@ function set_building_display(floor_nums, elevator_nums) {
     cal_floor_height()
     cal_elevator_main_first_top()
     $('.elevator-line').height(cal_elevator_line_height(floor_nums) + 'px')
+}
+
+let template_of_choose_floor_block_side = '<div class="g-panel-item-wrapper"><div class="elevator-window choose-floor-block panel-side"></div></div>'
+
+function div_html_off_choose_floor_block_side() {
+    return template_of_choose_floor_block_side
 }
 
 function choose_outdoor_witches(floor_no, direct) {
@@ -1117,6 +1189,16 @@ function check_and_change_elevators_position(change_function) {
     change_function();
 } 
 
+function elevators_position_all_one() {
+    check_and_change_elevators_position(
+        function () {
+            for (let eno = 1; eno <= elevator_nums; eno++) {
+                elevators[eno].change_floor(1)
+            }
+        }
+    )
+}
+
 // Bring all the elevators to first floor
 function firstFloor() {
     check_and_change_elevators_position(
@@ -1126,6 +1208,10 @@ function firstFloor() {
             }
         }
     )
+}
+
+function controller_wait_for_timeout_and_callBack(elevator_no, waiting_duration, callBack) {
+    $('.elevator-main.' + elevator_no).animate({opacity: '-=%0'}, waiting_duration, "linear", callBack)
 }
 
 // function smartMode() {
@@ -1150,5 +1236,61 @@ function firstFloor() {
 //         }
 //     }
 // }
+function controller_open_door(floor_no, elevator_no, callBack) {
+    let elevator_window_mark = floor_no + '-' + elevator_no
+    $('.elevator-main.' + elevator_no).animate({opacity: '100%'}, toggle_door_secs, "linear", callBack)
+    $('.elevator-window.' + elevator_window_mark + ' .elevator-door').animate({width: '0%'}, toggle_door_secs, "linear")
+}
+
+function controller_stop_closing_door(floor_no, elevator_no, callBack) {
+    let elevator_window_mark = floor_no + '-' + elevator_no
+    $('.elevator-main.' + elevator_no).stop()
+    $('.elevator-window.' + elevator_window_mark + ' .elevator-door').stop()
+    callBack()
+}
+
+function controller_close_door(floor_no, elevator_no, callBack) {
+    let elevator_window_mark = floor_no + '-' + elevator_no
+    $('.elevator-main.' + elevator_no).animate({opacity: '75%'}, toggle_door_secs, "linear", callBack)
+    $('.elevator-window.' + elevator_window_mark + ' .elevator-door').animate({width: '50%'}, toggle_door_secs, "linear")
+}
+
+function controller_move_down(elevator_no, callBack) {
+  
+    $('.elevator-main.' + elevator_no + ' .elevator-line').animate({height: '+=' + floor_height + 'px'}, floor_height * moving_speed_millisecond_per_pixel, "linear")
+    $('.elevator-main.' + elevator_no).animate({top: '+=' + floor_height + 'px'}, floor_height * moving_speed_millisecond_per_pixel, "linear", callBack)
+
+}
+
+function controller_move_up(elevator_no, callBack) {
+    $('.elevator-main.' + elevator_no + ' .elevator-line').animate({height: '-=' + floor_height + 'px'}, floor_height * moving_speed_millisecond_per_pixel, "linear")
+
+    $('.elevator-main.' + elevator_no).animate({top: '-=' + floor_height + 'px'}, floor_height * moving_speed_millisecond_per_pixel, "linear", callBack)
+}
+
+function controller_stop_waiting_for_timeout_and_callback(elevator_no, callBack) {
+    $('.elevator-main.' + elevator_no).stop()
+    callBack()
+}
+
+function controller_directly_go_to_floor(elevator_no, floor_no) {
+    $('.elevator-main.' + elevator_no).css({'top': elevator_main_first_top - (floor_no - 1) * floor_height + 'px'})
+    $('.elevator-main.' + elevator_no + ' .elevator-line').css({'height': elevator_line_height - (floor_no - 1) * floor_height + 'px'})
+
+}
+
+// let elevator_line_first_height
+function cal_elevator_line_height(floor_nums) {
+    elevator_line_height = cal_floor_height() * floor_nums - $(".elevator-main").height() -
+        $('.elevator-window.ceiling.ground').height()
+    return elevator_line_height
+}
+
+
+$(function() {
+    set_system_page_buttons_binding();
+  });
+
+
 
 
